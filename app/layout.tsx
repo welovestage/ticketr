@@ -8,8 +8,8 @@ import { Toaster } from "sonner";
 
 
 export const metadata: Metadata = {
-  title: "TICKETR",
-  description: "Next Gen Ticketing Platform",
+  title: "Welovestage",
+  description: "Miami Events & Performances",
   icons: {
     icon: '/logo-mobile.svg'
   }

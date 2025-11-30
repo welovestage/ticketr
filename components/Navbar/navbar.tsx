@@ -40,7 +40,7 @@ const Navbar = () => {
                         {/* Logo for light theme - visible on larger screens */}
                         <Image
                             priority
-                            src="/logo-light.svg"
+                            src="/logo.png"
                             width={70}
                             height={70}
                             alt="logo"
@@ -50,7 +50,7 @@ const Navbar = () => {
                         {/* Logo for dark theme - visible on larger screens */}
                         <Image
                             priority
-                            src="/logo-dark.svg"
+                            src="/logo.png"
                             width={70}
                             height={70}
                             alt="logo"
@@ -60,7 +60,7 @@ const Navbar = () => {
                         {/* Mobile logo - visible on smaller screens */}
                         <Image
                             priority
-                            src="/logo-mobile.svg"
+                            src="/logo.png"
                             width={40}
                             height={40}
                             alt="logo"
