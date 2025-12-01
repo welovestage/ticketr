@@ -12,7 +12,7 @@ const Auth = () => {
             <Unauthenticated>
                 <div className='flex gap-2 flex-col items-center justify-center'>
                     <SignInWithGoogle />
-                    <SignInWithGitHub />
+                    {/* <SignInWithGitHub /> */}
                 </div>
             </Unauthenticated>
 
