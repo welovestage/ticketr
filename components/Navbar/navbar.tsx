@@ -146,7 +146,6 @@ const Navbar = () => {
                 </div>
                 <div className="hidden md:block">
                     <div className="flex items-center gap-4">
-                        <Button onClick={() => redirect("/seller")}>Sell Tickets</Button>
                         <Button onClick={() => redirect("/tickets")}>My Tickets</Button>
                         {user === undefined ? (
                             <Spinner size="default" />
