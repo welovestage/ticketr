@@ -37,19 +37,10 @@ function TicketSuccess() {
     }
 
     // Handle no tickets state
-    // if (!tickets || tickets.length === 0) {
-    //     redirect("/");
-    //     return null;
-    // }
-    if (tickets.length === 0) {
-        return (
-          <div className="min-h-screen flex items-center justify-center">
-            <Spinner />
-            <p className="ml-3">Finalizing your ticket…</p>
-          </div>
-        );
-      }
-      
+    if (!tickets || tickets.length === 0) {
+        redirect("/");
+        return null;
+    }
 
     const latestTicket = tickets[tickets.length - 1];
 
