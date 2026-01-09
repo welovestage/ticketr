@@ -57,7 +57,7 @@ export async function createStripeCheckoutSession({
 
     const metadata: StripeCheckoutMetaData = {
         eventId,
-        userId: userId, 
+        userId,
         waitingListId: queuePosition._id,
     };
 
@@ -85,11 +85,7 @@ export async function createStripeCheckoutSession({
             mode: "payment",
             success_url: `${baseUrl}/tickets/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${baseUrl}/event/${eventId}`,
-            metadata: {
-                eventId: metadata.eventId,
-                userId: metadata.userId,
-                waitingListId: metadata.waitingListId,
-            },
+            metadata,
         },
         {
             stripeAccount: stripeConnectId, // Stripe connect ID for the event owner (Seller)
