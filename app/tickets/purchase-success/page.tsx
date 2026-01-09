@@ -5,10 +5,16 @@ import { redirect } from "next/navigation";
 import Ticket from "@/components/ticket";
 import { useQuery } from "convex/react";
 import { Spinner } from "@/components/spinner";
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
+import { useSearchParams } from "next/navigation";
 
 function TicketSuccess() {
+    const searchParams = useSearchParams();
+    const sessionId = searchParams.get("session_id");
+    const [waitTime, setWaitTime] = useState(0);
+    const maxWaitTime = 10000; // 10 seconds max wait
+
     // Always call useQuery for user
     const user = useQuery(api.users.getUser);
 
@@ -20,6 +26,16 @@ function TicketSuccess() {
     const tickets = useQuery(api.events.getUserTickets, {
         userId: userId as Id<"users"> || "" as Id<"users">
     });
+
+    // Increment wait time when we have session_id but no tickets
+    useEffect(() => {
+        if (sessionId && (!tickets || tickets.length === 0) && waitTime < maxWaitTime) {
+            const timer = setTimeout(() => {
+                setWaitTime(prev => prev + 500);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [sessionId, tickets, waitTime]);
 
     // Handle loading state
     if (user === undefined || tickets === undefined) {
@@ -36,8 +52,22 @@ function TicketSuccess() {
         return null;
     }
 
-    // Handle no tickets state
-    if (!tickets || tickets.length === 0) {
+    // Handle no tickets state - only redirect if we've waited long enough or no session_id
+    if ((!tickets || tickets.length === 0)) {
+        if (sessionId && waitTime < maxWaitTime) {
+            // Still waiting for webhook to process
+            return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="text-center">
+                        <Spinner />
+                        <p className="mt-4 text-foreground/60">
+                            Processing your payment...
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+        // No session_id or waited too long - redirect
         redirect("/");
         return null;
     }

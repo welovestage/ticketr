@@ -109,7 +109,7 @@ function SellerEventCard({
                             <div className="flex items-center gap-2">
                                 {!isPastEvent && !event.is_cancelled && (
                                     <>
-                                        <Button variant="noShadow">
+                                        <Button variant="noShadow" asChild>
                                             <Link
                                                 href={`/seller/events/${event._id}/edit`}
                                                 className="shrink-0 flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
