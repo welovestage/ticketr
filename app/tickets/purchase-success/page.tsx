@@ -13,7 +13,8 @@ function TicketSuccess() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get("session_id");
     const [waitTime, setWaitTime] = useState(0);
-    const maxWaitTime = 10000; // 10 seconds max wait
+    const maxWaitTime = 60000; // 60 seconds max wait (webhooks can be slow)
+    const [previousTicketCount, setPreviousTicketCount] = useState<number | null>(null);
 
     // Always call useQuery for user
     const user = useQuery(api.users.getUser);
@@ -27,15 +28,27 @@ function TicketSuccess() {
         userId: userId as Id<"users"> || "" as Id<"users">
     });
 
-    // Increment wait time when we have session_id but no tickets
+    // Track previous ticket count to detect new tickets
     useEffect(() => {
-        if (sessionId && (!tickets || tickets.length === 0) && waitTime < maxWaitTime) {
+        if (tickets !== undefined) {
+            if (previousTicketCount === null) {
+                setPreviousTicketCount(tickets.length);
+            } else if (tickets.length > previousTicketCount) {
+                // New ticket detected, reset wait time
+                setWaitTime(0);
+            }
+        }
+    }, [tickets, previousTicketCount]);
+
+    // Increment wait time when we have session_id but no new tickets
+    useEffect(() => {
+        if (sessionId && tickets !== undefined && (!tickets || tickets.length === previousTicketCount || previousTicketCount === null) && waitTime < maxWaitTime) {
             const timer = setTimeout(() => {
-                setWaitTime(prev => prev + 500);
-            }, 500);
+                setWaitTime(prev => prev + 1000); // Check every second
+            }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [sessionId, tickets, waitTime]);
+    }, [sessionId, tickets, waitTime, previousTicketCount, maxWaitTime]);
 
     // Handle loading state
     if (user === undefined || tickets === undefined) {
@@ -63,6 +76,9 @@ function TicketSuccess() {
                         <p className="mt-4 text-foreground/60">
                             Processing your payment...
                         </p>
+                        <p className="mt-2 text-sm text-foreground/40">
+                            This may take a few moments. Please wait...
+                        </p>
                     </div>
                 </div>
             );
@@ -70,6 +86,24 @@ function TicketSuccess() {
         // No session_id or waited too long - redirect
         redirect("/");
         return null;
+    }
+
+    // Check if we got a new ticket (for session_id case)
+    if (sessionId && previousTicketCount !== null && tickets.length <= previousTicketCount && waitTime < maxWaitTime) {
+        // Still waiting for new ticket
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <Spinner />
+                    <p className="mt-4 text-foreground/60">
+                        Processing your payment...
+                    </p>
+                    <p className="mt-2 text-sm text-foreground/40">
+                        This may take a few moments. Please wait...
+                    </p>
+                </div>
+            </div>
+        );
     }
 
     const latestTicket = tickets[tickets.length - 1];
