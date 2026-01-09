@@ -40,6 +40,23 @@ export async function POST(req: Request) {
         console.log("Session metadata:", metadata);
         console.log("Convex client:", convex);
 
+        // Validate metadata exists and has required fields
+        if (!metadata || !metadata.eventId || !metadata.userId || !metadata.waitingListId) {
+            console.error("Missing required metadata in session", {
+                hasMetadata: !!metadata,
+                eventId: metadata?.eventId,
+                userId: metadata?.userId,
+                waitingListId: metadata?.waitingListId,
+            });
+            return new Response("Missing required metadata", { status: 400 });
+        }
+
+        // Validate payment intent exists
+        if (!session.payment_intent) {
+            console.error("Missing payment_intent in session");
+            return new Response("Missing payment_intent", { status: 400 });
+        }
+
         try {
             const result = await convex.mutation(api.events.purchaseTicket, {
                 eventId: metadata.eventId,
@@ -53,7 +70,7 @@ export async function POST(req: Request) {
             console.log("Purchase ticket mutation completed:", result);
         } catch (error) {
             console.error("Error processing webhook:", error);
-            return new Response("Error processing webhook", { status: 500 });
+            return new Response(`Error processing webhook: ${(error as Error).message}`, { status: 500 });
         }
     }
 
