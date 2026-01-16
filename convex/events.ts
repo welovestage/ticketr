@@ -24,7 +24,15 @@ export const get = query({
 
 
 // Internal, so it doesn't get exposed to FE.
-export const getById = internalQuery({
+export const getByIdInternal = internalQuery({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    return await ctx.db.get(eventId);
+  },
+});
+
+// Some like "refund" do use public getById so let's keep it for now to not break it.
+export const getById = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, { eventId }) => {
     return await ctx.db.get(eventId);
