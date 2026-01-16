@@ -1,5 +1,4 @@
 "use client";
-
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
@@ -13,7 +12,7 @@ const PurchaseTicket = ({ eventId }: { eventId: Id<"events"> }) => {
   const user = useQuery(api.users.getUser);
   
   // Encapsulates all timer and queue position logic
-  const { timeRemaining, isExpired, isLoading, queuePosition, offerExpiresAt } = useOfferTimer({
+  const { isExpired, isLoading, queuePosition, offerExpiresAt } = useOfferTimer({
     eventId,
     userId: user?._id,
   });
@@ -34,11 +33,12 @@ const PurchaseTicket = ({ eventId }: { eventId: Id<"events"> }) => {
         onRelease={() => {}} // Handled by ReleaseTicket component below
         isPurchaseLoading={isPurchaseLoading || isLoading || isExpired}
       />
-      
-      <ReleaseTicket 
-        eventId={eventId} 
-        waitingListId={queuePosition?._id} 
-      />
+      {queuePosition?._id && ( // Only render if waitingListId exists
+        <ReleaseTicket 
+          eventId={eventId} 
+          waitingListId={queuePosition._id} 
+        />
+      )}
     </div>
   );
 };

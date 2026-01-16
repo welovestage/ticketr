@@ -6,7 +6,7 @@ import { Id } from '@/convex/_generated/dataModel';
 
 interface UseOfferTimerProps {
   eventId: Id<"events">;
-  userId?: Id<"users">;
+  userId?: string;
 }
 
 interface UseOfferTimerReturn {
@@ -14,7 +14,15 @@ interface UseOfferTimerReturn {
   isExpired: boolean;
   isLoading: boolean;
   offerExpiresAt: number;
-  queuePosition: any;
+  queuePosition: {
+    _id: Id<"waitingList">;
+    _creationTime: number;
+    eventId: Id<"events">;
+    userId: string;
+    status: "waiting" | "offered" | "purchased" | "expired";
+    offerExpiresAt?: number;
+    position: number;
+  } | null | undefined;
 }
 
 export function useOfferTimer({ eventId, userId }: UseOfferTimerProps): UseOfferTimerReturn {
@@ -24,14 +32,14 @@ export function useOfferTimer({ eventId, userId }: UseOfferTimerProps): UseOffer
     api.waitingList.getQueuePosition,
     userId ? { eventId, userId } : "skip"
   );
-  
+
   const offerExpiresAt = queuePosition?.offerExpiresAt ?? 0;
-  const isExpired = Date.now() > offerExpiresAt;
+  const isExpired = offerExpiresAt > 0 && Date.now() > offerExpiresAt;
   const isLoading = queuePosition === undefined;
 
   useEffect(() => {
     const calculateTimeRemaining = () => {
-      if (isExpired) {
+      if (isExpired || offerExpiresAt === 0) {
         setTimeRemaining("Expired");
         return;
       }

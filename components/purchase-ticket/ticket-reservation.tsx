@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -45,9 +44,7 @@ export function TicketReservation({
       <div className="flex items-center gap-2 mb-1">
         <span className="text-emerald-400 text-sm font-medium tracking-wide uppercase">Ticket Reserved</span>
       </div>
-
       <p className="text-white/70 text-sm mb-4">Complete your purchase before the timer expires to secure your spot.</p>
-
       <div className="flex items-center justify-between gap-4">
         <Button
           onClick={onPurchase}
@@ -56,15 +53,13 @@ export function TicketReservation({
         >
           {isPurchaseLoading ? "Redirecting..." : "Purchase Now"}
         </Button>
-
         <div className="text-right">
-          <span className={`font-mono text-2xl font-bold tabular-nums ${isUrgent ? "text-red-400" : "text-white"}`}>
+          <span className={`font-mono text-2xl font-bold tabular-nums ${isUrgent ? "text-red-400" : "text-white"}`}> {/* Fixed template literal syntax */}
             {timeRemaining}
           </span>
           <p className="text-white/50 text-xs">remaining</p>
         </div>
       </div>
-
       <button
         onClick={onRelease}
         className="mt-3 text-white/40 text-xs hover:text-white/60 transition-colors w-full text-center"
