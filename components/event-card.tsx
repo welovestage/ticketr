@@ -11,7 +11,7 @@ import { Badge } from './ui/badge'
 import { CalendarDays, Check, CircleArrowRight, LoaderCircle, MapPin, PencilIcon, StarIcon, Ticket, XCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader } from './ui/card'
 import { Button } from './ui/button'
-import PurchaseTicket from './purchase-ticket'
+import PurchaseTicket from './purchase-ticket/purchase-ticket'
 
 const EventCard = ({ eventId }: { eventId: Id<"events"> }) => {
     const router = useRouter();

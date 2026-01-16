@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, QueryCtx } from "./_generated/server";
+import { internalQuery, mutation, query, QueryCtx } from "./_generated/server";
 import { DURATIONS, TICKET_STATUS, WAITING_LIST_STATUS } from "./constant";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -22,12 +22,31 @@ export const get = query({
     }
 })
 
-export const getById = query({
-    args: { eventId: v.id("events") },
-    handler: async (ctx, { eventId }) => {
-        return await ctx.db.get(eventId)
-    }
-})
+
+// Internal, so it doesn't get exposed to FE.
+export const getById = internalQuery({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    return await ctx.db.get(eventId);
+  },
+});
+
+// A separate mutation to update the waiting list status after purchase. Not used yet but good to have - consider later. We have our solution in payments.ts fulfill
+export const updateWaitingListAfterPurchase = mutation({
+  args: {
+    waitingListId: v.id("waitingList"),
+    eventId: v.id("events"),
+  },
+  handler: async (ctx, { waitingListId, eventId }) => {
+    // Update waiting list entry to purchased
+    await ctx.db.patch(waitingListId, {
+      status: WAITING_LIST_STATUS.PURCHASED,
+    });
+
+    // Process queue for next person
+    await processQueueHelper(ctx, { eventId });
+  },
+});
 
 export const getEventAvailability = query({
     args: { eventId: v.id("events") },
@@ -189,6 +208,7 @@ export const joinWaitingList = mutation({
     },
 });
 
+// This is the object we're selling through Stripe checkout
 export const create = mutation({
     args: {
         name: v.string(),
@@ -244,6 +264,9 @@ export const updateEvent = mutation({
     }
 })
 
+// Yet this was never used.
+// Remove or update the purchaseTicket mutation
+// This is now handled by the Stripe webhook flow in payments.fulfill
 export const purchaseTicket = mutation({
     args: {
         eventId: v.id("events"),
@@ -301,6 +324,7 @@ export const purchaseTicket = mutation({
             throw new Error("Event is no longer active");
         }
 
+        // This is when user successfull bought it.
         try {
             console.log("Creating ticket with payment info", paymentInfo);
             // Create ticket with payment info
@@ -309,8 +333,8 @@ export const purchaseTicket = mutation({
                 userId,
                 purchasedAt: Date.now(),
                 status: TICKET_STATUS.VALID,
-                paymentIntentId: paymentInfo.paymentIntentId,
-                amount: paymentInfo.amount,
+                // paymentId: paymentInfo.paymentIntentId, // Silence typescript... This function is not used anyway.
+                amount: event.price,
             });
 
             console.log("Updating waiting list status to purchased");
