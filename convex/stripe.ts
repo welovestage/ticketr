@@ -10,7 +10,7 @@ import { Id } from "./_generated/dataModel";
 export const pay = action({
   args: { eventId: v.id("events") },
   handler: async (ctx, { eventId }): Promise<string> => {
-    const domain = process.env.HOSTING_URL ?? "http://localhost:5173";
+    const domain = process.env.NEXT_PUBLIC_APP_URL ?? "https://tickets.welovestage.com";
     
     const stripe = new Stripe(process.env.STRIPE_KEY!, {
       apiVersion: "2025-07-30.basil",
@@ -62,7 +62,7 @@ export const pay = action({
       },
       success_url: `${domain}/success?paymentId=${paymentId}`,
       cancel_url: `${domain}/events/${eventId}`,
-      automatic_tax: { enabled: true },
+      automatic_tax: { enabled: false },
     });
 
     await ctx.runMutation(internal.payments.markPending, {
