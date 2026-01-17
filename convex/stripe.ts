@@ -60,7 +60,7 @@ export const pay = action({
           destination: organizer.stripeConnectId,
         },
       },
-      success_url: `${domain}/success?paymentId=${paymentId}`,
+      success_url: `${domain}/tickets/success?paymentId=${paymentId}`,
       cancel_url: `${domain}/events/${eventId}`,
       automatic_tax: { enabled: false },
     });
