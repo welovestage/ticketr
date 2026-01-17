@@ -15,6 +15,7 @@ import type * as http from "../http.js";
 import type * as payments from "../payments.js";
 import type * as storage from "../storage.js";
 import type * as stripe from "../stripe.js";
+import type * as stripeConnect from "../stripeConnect.js";
 import type * as tickets from "../tickets.js";
 import type * as users from "../users.js";
 import type * as waitingList from "../waitingList.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   payments: typeof payments;
   storage: typeof storage;
   stripe: typeof stripe;
+  stripeConnect: typeof stripeConnect;
   tickets: typeof tickets;
   users: typeof users;
   waitingList: typeof waitingList;

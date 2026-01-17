@@ -1,11 +1,11 @@
 "use node";
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api"; // Import internal
+import { internal } from "./_generated/api";
 import Stripe from "stripe";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-const stripe = new Stripe(process.env.STRIPE_KEY!, { // Unified env var name
+const stripe = new Stripe(process.env.STRIPE_KEY!, {
   apiVersion: "2025-07-30.basil",
 });
 
@@ -46,5 +46,47 @@ export const createAccountLink = action({
     });
 
     return accountLink.url;
+  },
+});
+
+export const getAccountStatus = action({
+  args: { accountId: v.string() },
+  handler: async (ctx, { accountId }) => {
+    const stripe = new Stripe(process.env.STRIPE_KEY!, {
+        apiVersion: "2025-07-30.basil",
+    });
+
+    try {
+      const account = await stripe.accounts.retrieve(accountId);
+      
+      return {
+        isActive: account.charges_enabled && account.payouts_enabled,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        requiresInformation: (account.requirements?.currently_due?.length ?? 0) > 0,
+        requirements: {
+          currently_due: account.requirements?.currently_due ?? [],
+          eventually_due: account.requirements?.eventually_due ?? [],
+        }
+      };
+    } catch (error) {
+      throw new Error("Failed to fetch Stripe account status");
+    }
+  },
+});
+
+export const createLoginLink = action({
+  args: { accountId: v.string() },
+  handler: async (ctx, { accountId }) => {
+    const stripe = new Stripe(process.env.STRIPE_KEY!, {
+        apiVersion: "2025-07-30.basil",
+    });
+
+    try {
+      const loginLink = await stripe.accounts.createLoginLink(accountId);
+      return loginLink.url;
+    } catch (error) {
+      throw new Error("Failed to create login link");
+    }
   },
 });
