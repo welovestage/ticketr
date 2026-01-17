@@ -1,28 +1,34 @@
-"use client"
+"use client";
 
 import { api } from "@/convex/_generated/api";
-import { redirect } from "next/navigation";
-import Ticket from "@/components/ticket";
 import { useQuery } from "convex/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Ticket from "@/components/ticket"; // Assuming this is your component
 import { Spinner } from "@/components/spinner";
-import { useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
+import { useEffect } from "react";
 
-function TicketSuccess() {
-    // Always call useQuery for user
-    const user = useQuery(api.users.getUser);
+export default function TicketSuccess() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const paymentId = searchParams.get("paymentId");
 
-    // Create a safe userId that's never undefined
-    const userId = useMemo(() => user?._id, [user]);
-
-    // Always call useQuery - use empty string as fallback
-    // This ensures the hook is always called
-    const tickets = useQuery(api.events.getUserTickets, {
-        userId: userId as Id<"users"> || "" as Id<"users">
+    // 1. Get the ticket ID associated with this specific payment
+    // I created this query in convex/payments.ts specifically for this page
+    const ticketId = useQuery(api.payments.getTicketId, {
+        paymentId: (paymentId as Id<"payments">) || undefined // Pass undefined to skip if null
     });
 
-    // Handle loading state
-    if (user === undefined || tickets === undefined) {
+    // 2. Redirect logic inside useEffect (safer for Client Components)
+    useEffect(() => {
+        // If paymentId is missing, go home
+        if (!paymentId) {
+            router.push("/");
+        }
+    }, [paymentId, router]);
+
+    // 3. Loading State
+    if (ticketId === undefined) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Spinner />
@@ -30,20 +36,17 @@ function TicketSuccess() {
         );
     }
 
-    // Handle no user state
-    if (!user) {
-        redirect("/auth/signin");
-        return null;
+    // 4. If query finished but no ticket found (yet), or payment invalid
+    if (ticketId === null) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+                <Spinner />
+                <p className="text-gray-500">Finalizing your ticket...</p>
+            </div>
+        );
     }
 
-    // Handle no tickets state
-    if (!tickets || tickets.length === 0) {
-        redirect("/");
-        return null;
-    }
-
-    const latestTicket = tickets[tickets.length - 1];
-
+    // 5. Success. Render the specific ticket
     return (
         <div className="min-h-content py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto">
@@ -56,10 +59,8 @@ function TicketSuccess() {
                     </p>
                 </div>
 
-                <Ticket ticketId={latestTicket._id} />
+                <Ticket ticketId={ticketId} />
             </div>
         </div>
     );
 }
-
-export default TicketSuccess;
