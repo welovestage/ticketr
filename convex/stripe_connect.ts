@@ -36,10 +36,13 @@ export const createAccount = action({
 });
 
 export const createAccountLink = action({
-  args: { accountId: v.string() },
+  args: { accountId: v.string(), origin: v.optional(v.string())},
   handler: async (ctx, args) => {
     const accountLink = await stripe.accountLinks.create({
       account: args.accountId,
+      // We will consider this url later
+      //       refresh_url: `${returnUrl}/seller/dashboard`,
+      //       return_url: `${returnUrl}/seller/dashboard`,
       refresh_url: "https://tickets.welovestage.com/dashboard/seller",
       return_url: "https://tickets.welovestage.com/dashboard/seller",
       type: "account_onboarding",

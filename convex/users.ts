@@ -47,6 +47,7 @@ export const getUser = query({
   },
 });
 
+
 export const getById = query({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {

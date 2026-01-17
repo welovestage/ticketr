@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { CalendarDays, Cog, Plus } from "lucide-react";
@@ -10,6 +9,7 @@ import { Spinner } from "./spinner";
 import { Button } from "./ui/button";
 
 // Define the type locally matching the backend return type
+// Convex is end-to-end type-safe so this is not the best practice but let's see app working first.
 type AccountStatus = {
   isActive: boolean;
   chargesEnabled: boolean;
@@ -26,38 +26,20 @@ export default function SellerDashboard() {
   const [accountLinkCreatePending, setAccountLinkCreatePending] = useState(false);
   const [error, setError] = useState(false);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
-  
-  const router = useRouter();
 
-  // CONVEX ACTIONS & QUERIES
   const createAccount = useAction(api.stripe_connect.createAccount);
   const createAccountLink = useAction(api.stripe_connect.createAccountLink);
   const createLoginLink = useAction(api.stripe_connect.createLoginLink);
   const getAccountStatus = useAction(api.stripe_connect.getAccountStatus);
-  
-  // Assuming api.users.getById returns the current user object
-  // You might need to adjust this query depending on your exact users.ts implementation
-  const user = useQuery(api.users.getById, {}); 
+
+  const user = useQuery(api.users.getUser);
   const stripeConnectId = user?.stripeConnectId;
 
   const isReadyToAcceptPayments =
     accountStatus?.isActive && accountStatus?.payoutsEnabled;
 
-  useEffect(() => {
-    if (stripeConnectId) {
-      fetchAccountStatus();
-    }
-  }, [stripeConnectId]);
-
-  if (user === undefined) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  const fetchAccountStatus = async () => {
+  // FIX: Wrap in useCallback to satisfy useEffect dependency rules
+  const fetchAccountStatus = useCallback(async () => {
     if (stripeConnectId) {
       try {
         const status = await getAccountStatus({ accountId: stripeConnectId });
@@ -66,7 +48,22 @@ export default function SellerDashboard() {
         console.error("Error fetching account status:", error);
       }
     }
-  };
+  }, [stripeConnectId, getAccountStatus]);
+
+  // FIX: Added dependency
+  useEffect(() => {
+    if (stripeConnectId) {
+      fetchAccountStatus();
+    }
+  }, [stripeConnectId, fetchAccountStatus]);
+
+  if (user === undefined) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   const handleManageAccount = async () => {
     try {
@@ -122,7 +119,6 @@ export default function SellerDashboard() {
                 </div>
               </div>
             </div>
-            {/* <hr className="my-8 border-2 border-foreground/50" /> */}
           </>
         )}
 
@@ -142,11 +138,8 @@ export default function SellerDashboard() {
                   setAccountCreatePending(true);
                   setError(false);
                   try {
-                    // We don't need to pass ID; backend gets it from Auth
-                    await createAccount({}); 
+                    await createAccount({});
                     setAccountCreatePending(false);
-                    // The UI will update automatically via the useQuery(user) hook
-                    // once the mutation in createAccount updates the DB
                   } catch (error) {
                     console.error("Error creating Stripe Connect customer:", error);
                     setError(true);
@@ -262,15 +255,12 @@ export default function SellerDashboard() {
                         Eventually Needed:
                       </p>
                       <ul className="list-disc pl-5 text-yellow-700 text-sm">
-                        {accountStatus.requirements.eventually_due.map(
-                          (req) => (
-                            <li key={req}>{req.replace(/_/g, " ")}</li>
-                          )
-                        )}
+                        {accountStatus.requirements.eventually_due.map((req) => (
+                          <li key={req}>{req.replace(/_/g, " ")}</li>
+                        ))}
                       </ul>
                     </div>
                   )}
-                  {/* Only show Add Information button if there are requirements */}
                   {!accountLinkCreatePending && (
                     <Button
                       onClick={async () => {
@@ -279,8 +269,9 @@ export default function SellerDashboard() {
                         try {
                           const url = await createAccountLink({
                             accountId: stripeConnectId,
+                            origin: window.location.origin,
                           });
-                          window.location.href = url; // Use window.location for external stripe URL
+                          window.location.href = url;
                         } catch (error) {
                           console.error(
                             "Error creating Stripe Connect account link:",
