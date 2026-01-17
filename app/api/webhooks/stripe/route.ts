@@ -1,61 +1,70 @@
-import { headers } from "next/headers";
-import { stripe } from "@/lib/stripe";
-import { getConvexClient } from "@/lib/convex";
-import { api } from "@/convex/_generated/api";
-import Stripe from "stripe";
-import { StripeCheckoutMetaData } from "@/actions/createStripeCheckoutSession";
+//------------------------------
+// 
+//       Thought to be LEGACY
+// The ticket creation is now handled automatically by payments.fulfill 
+// when the Stripe webhook fires after successful payment
+// 
+//_______________________________
 
-export async function POST(req: Request) {
-    console.log("Webhook received");
 
-    const body = await req.text();
-    const headersList = await headers();
-    const signature = headersList.get("stripe-signature") as string;
+// import { headers } from "next/headers";
+// import { stripe } from "@/lib/stripe";
+// import { getConvexClient } from "@/lib/convex";
+// import { api } from "@/convex/_generated/api";
+// import Stripe from "stripe";
+// import { StripeCheckoutMetaData } from "@/actions/createStripeCheckoutSession";
 
-    console.log("Webhook signature:", signature ? "Present" : "Missing");
+// export async function POST(req: Request) {
+//     console.log("Webhook received");
 
-    let event: Stripe.Event;
+//     const body = await req.text();
+//     const headersList = await headers();
+//     const signature = headersList.get("stripe-signature") as string;
 
-    try {
-        console.log("Attempting to construct webhook event");
-        event = stripe.webhooks.constructEvent(
-            body,
-            signature,
-            process.env.STRIPE_WEBHOOK_SECRET!
-        );
-        console.log("Webhook event constructed successfully:", event.type);
-    } catch (err) {
-        console.error("Webhook construction failed:", err);
-        return new Response(`Webhook Error: ${(err as Error).message}`, {
-            status: 400,
-        });
-    }
+//     console.log("Webhook signature:", signature ? "Present" : "Missing");
 
-    const convex = getConvexClient();
+//     let event: Stripe.Event;
 
-    if (event.type === "checkout.session.completed") {
-        console.log("Processing checkout.session.completed");
-        const session = event.data.object as Stripe.Checkout.Session;
-        const metadata = session.metadata as StripeCheckoutMetaData;
-        console.log("Session metadata:", metadata);
-        console.log("Convex client:", convex);
+//     try {
+//         console.log("Attempting to construct webhook event");
+//         event = stripe.webhooks.constructEvent(
+//             body,
+//             signature,
+//             process.env.STRIPE_WEBHOOK_SECRET!
+//         );
+//         console.log("Webhook event constructed successfully:", event.type);
+//     } catch (err) {
+//         console.error("Webhook construction failed:", err);
+//         return new Response(`Webhook Error: ${(err as Error).message}`, {
+//             status: 400,
+//         });
+//     }
 
-        try {
-            const result = await convex.mutation(api.events.purchaseTicket, {
-                eventId: metadata.eventId,
-                userId: metadata.userId,
-                waitingListId: metadata.waitingListId,
-                paymentInfo: {
-                    paymentIntentId: session.payment_intent as string,
-                    amount: session.amount_total ?? 0,
-                },
-            });
-            console.log("Purchase ticket mutation completed:", result);
-        } catch (error) {
-            console.error("Error processing webhook:", error);
-            return new Response("Error processing webhook", { status: 500 });
-        }
-    }
+//     const convex = getConvexClient();
 
-    return new Response(null, { status: 200 });
-}
+//     if (event.type === "checkout.session.completed") {
+//         console.log("Processing checkout.session.completed");
+//         const session = event.data.object as Stripe.Checkout.Session;
+//         const metadata = session.metadata as StripeCheckoutMetaData;
+//         console.log("Session metadata:", metadata);
+//         console.log("Convex client:", convex);
+
+//         try {
+//             const result = await convex.mutation(api.events.purchaseTicket, {
+//                 eventId: metadata.eventId,
+//                 userId: metadata.userId,
+//                 waitingListId: metadata.waitingListId,
+//                 paymentInfo: {
+//                     paymentIntentId: session.payment_intent as string,
+//                     amount: session.amount_total ?? 0,
+//                 },
+//             });
+//             console.log("Purchase ticket mutation completed:", result);
+//         } catch (error) {
+//             console.error("Error processing webhook:", error);
+//             return new Response("Error processing webhook", { status: 500 });
+//         }
+//     }
+
+//     return new Response(null, { status: 200 });
+// }

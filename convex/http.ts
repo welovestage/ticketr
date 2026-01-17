@@ -13,7 +13,7 @@ auth.addHttpRoutes(http);
 
 // The HTTP action will handle the Stripe webhook request, parsing it, and passing its contents to another Convex action that will confirm the request is valid using the Stripe SDK in the Node.js runtime:
 http.route({
-  path: "/stripe",
+  path: "/stripe-webhook",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     // Getting the stripe-signature header

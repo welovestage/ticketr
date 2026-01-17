@@ -5,27 +5,30 @@ import { processQueueHelper } from "./waitingList";
 
 // It creates a document in our “payments” table so that we can track the progress of the checkout flow.
 
-// Get the ticket ID from a payment (for highlighting purchased ticket on success page)
+/**
+ * GET TICKET ID
+ * Used by the success page to redirect the user to their ticket.
+ * We look this up in the 'tickets' table using the payment reference.
+ */
 export const getTicketId = query({
   args: { paymentId: v.optional(v.id("payments")) },
   handler: async (ctx, { paymentId }) => {
-    if (paymentId === undefined) {
-      return null;
-    }
-    return (await ctx.db.get(paymentId))?.ticketId;
+    if (!paymentId) return null;
+
+    // Look up the ticket associated with this payment
+    const ticket = await ctx.db
+      .query("tickets")
+      .withIndex("by_payment", (q) => q.eq("paymentId", paymentId))
+      .first();
+
+    return ticket?._id;
   },
 });
 
 export const create = internalMutation({
-  // change this to event. is user buying the ticket or event? are we selling ticket or event?
-  // arg it should take is eventId and we get the event.
-  // Get event details
-  // const event = await convex.query(api.events.getById, { eventId });
-  // if (!event) throw new Error("Event not found");
-
   args: {
     eventId: v.id("events"),
-    userId: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, { eventId, userId }) => {
     return await ctx.db.insert("payments", {
@@ -43,37 +46,44 @@ export const markPending = internalMutation({
   },
 });
 
+//  1. Marks payment as fulfilled.
+//  2. Generates the actual Ticket.
+//  3. Updates Waiting List if applicable.
 export const fulfill = internalMutation({
   args: {
     stripeId: v.string(),
   },
   handler: async (ctx, { stripeId }) => {
-    // Find the payment by stripeId
-    const payment = (await ctx.db
+    // Find the payment by Stripe Session ID
+    const payment = await ctx.db
       .query("payments")
       .withIndex("stripeId", (q) => q.eq("stripeId", stripeId))
-      .unique())!;
+      .first();
+    if (!payment || payment.status === "fulfilled") return;
 
+    // Mark Payment as Fulfilled
+    await ctx.db.patch(payment._id, { status: "fulfilled" });
     // Create the ticket
-    const ticketId = await ctx.db.insert("tickets", {
+    // 3. CREATE THE TICKET (The most important part)
+    await ctx.db.insert("tickets", {
       eventId: payment.eventId,
       userId: payment.userId,
-      purchasedAt: Date.now(),
+      paymentId: payment._id,
       status: "valid",
-    //   paymentIntentId,
+      purchasedAt: Date.now(),
     });
 
-    // Mark payment as fulfilled with the ticketId
-    await ctx.db.patch(payment._id, {
-      ticketId,
-      status: "fulfilled",
-    });
+    // Mark payment as fulfilled with the ticketId | Commented because we don't crry ticketId with payment anymore.
+    // await ctx.db.patch(payment._id, {
+    //   ticketId,
+    //   status: "fulfilled",
+    // }); 
 
     // If there's a waiting list entry for this user/event, update it. Consider removing for lean testing
     const waitingListEntry = await ctx.db
       .query("waitingList")
-      .withIndex("by_user_event", (q) => 
-        q.eq("userId", payment.userId).eq("eventId", payment.eventId)
+      .withIndex("by_user_event", (q) =>
+        q.eq("userId", payment.userId).eq("eventId", payment.eventId),
       )
       .filter((q) => q.eq(q.field("status"), WAITING_LIST_STATUS.OFFERED))
       .first();
@@ -82,11 +92,19 @@ export const fulfill = internalMutation({
       await ctx.db.patch(waitingListEntry._id, {
         status: WAITING_LIST_STATUS.PURCHASED,
       });
-      
-      // Process queue for next person - you'll need to import this
+
+      // Process queue for next person
       await processQueueHelper(ctx, { eventId: payment.eventId });
     }
 
-    return ticketId;
+    // return ticketId;
+  },
+});
+
+// refundEventTickets wants this
+export const get = query({
+  args: { paymentId: v.id("payments") },
+  handler: async (ctx, { paymentId }) => {
+    return await ctx.db.get(paymentId);
   },
 });

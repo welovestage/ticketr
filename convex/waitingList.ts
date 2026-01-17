@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
 export const getQueuePosition = query({
     args: {
         eventId: v.id("events"),
-        userId: v.string(),
+        userId: v.id("users"),
     },
     handler: async (ctx, { eventId, userId }) => {
         // Get entry for this specific user and event combination

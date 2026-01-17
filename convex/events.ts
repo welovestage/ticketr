@@ -140,7 +140,7 @@ export const checkAvailability = query({
 // Join waiting list for an event
 export const joinWaitingList = mutation({
     // Function takes an event ID and user ID as arguments
-    args: { eventId: v.id("events"), userId: v.string() },
+    args: { eventId: v.id("events"), userId: v.id("users") },
     handler: async (ctx, { eventId, userId }) => {
         // Rate limit check
         // const status = await rateLimiter.limit(ctx, "queueJoin", { key: userId });
@@ -225,7 +225,7 @@ export const create = mutation({
         eventDate: v.number(), // Store as timestamp
         price: v.number(),
         totalTickets: v.number(),
-        userId: v.string(),
+        userId: v.id("users"),
     },
     handler: async (ctx, args) => {
         const eventId = await ctx.db.insert("events", {
@@ -278,7 +278,7 @@ export const updateEvent = mutation({
 export const purchaseTicket = mutation({
     args: {
         eventId: v.id("events"),
-        userId: v.string(),
+        userId: v.id("users"),
         waitingListId: v.id("waitingList"),
         paymentInfo: v.object({
             paymentIntentId: v.string(),

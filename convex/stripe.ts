@@ -1,27 +1,45 @@
 import { action, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { StripeSubscriptions } from "@convex-dev/stripe";
+import { api, internal } from "./_generated/api";
 import { convexToJson, v } from "convex/values";
 import Stripe from "stripe";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const pay = action({
   args: { eventId: v.id("events") },
   handler: async (ctx, { eventId }): Promise<string | null> => {
     const domain = process.env.HOSTING_URL ?? "http://localhost:5173";
     const stripe = new Stripe(process.env.STRIPE_KEY!, {
-      apiVersion: "2025-12-15.clover",
+      apiVersion: "2025-07-30.basil",
     });
 
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    // 1. Get the ID directly (replaces getUserIdentity)
+    const userId = await getAuthUserId(ctx);
 
-    const event = await ctx.runQuery(internal.events.getById, { eventId });
+    // 2. REQUIRED: Null check to satisfy TypeScript
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const event = await ctx.runQuery(internal.events.getByIdInternal, {
+      eventId,
+    });
     if (!event) throw new Error("Event not found");
 
+    // 3. Now 'userId' is strictly Id<"users">, so no error!
     const paymentId = await ctx.runMutation(internal.payments.create, {
       eventId,
-      userId: identity.subject,
+      userId,
     });
+
+    // 1. Fetch the Organizer (User)
+    const organizer = await ctx.runQuery(api.users.getById, {
+      userId: event.userId,
+    });
+    if (!organizer || !organizer.stripeConnectId) {
+      throw new Error("This seller is not setup to accept payments yet.");
+    }
+    const platformFee = 0;     // The amount of the application fee (if any) that will be requested to be applied to the payment and transferred to the application owner's Stripe account
+    
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
@@ -32,7 +50,7 @@ export const pay = action({
             product_data: {
               name: `Ticket to ${event.name}`,
               description: `${event.location} - ${new Date(
-                event.eventDate
+                event.eventDate,
               ).toLocaleDateString()}`,
             },
           },
@@ -40,6 +58,12 @@ export const pay = action({
         },
       ],
       mode: "payment",
+      payment_intent_data: {
+        application_fee_amount: platformFee, // You keep this
+        transfer_data: {
+          destination: organizer.stripeConnectId, // Seller gets the rest
+        },
+      },
       // It includes the ID of our “payments” document in the success_url that Stripe will redirect to after the user has finished paying.
       success_url: `${domain}/success?paymentId=${paymentId}`,
       cancel_url: `${domain}/events/${eventId}`,
@@ -61,7 +85,7 @@ export const fulfill = internalAction({
   args: { signature: v.string(), payload: v.string() },
   handler: async ({ runMutation }, { signature, payload }) => {
     const stripe = new Stripe(process.env.STRIPE_KEY!, {
-      apiVersion: "2025-12-15.clover",
+      apiVersion: "2025-07-30.basil",
     });
 
     const webhookSecret = process.env.STRIPE_WEBHOOKS_SECRET as string;
@@ -70,7 +94,7 @@ export const fulfill = internalAction({
       const event = await stripe.webhooks.constructEventAsync(
         payload,
         signature,
-        webhookSecret
+        webhookSecret,
       );
       if (event.type === "checkout.session.completed") {
         // Finally, it writes the Stripe checkout session ID into the “payments” document to ensure we only fulfill the "order" once.
