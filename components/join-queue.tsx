@@ -10,16 +10,20 @@ import { Spinner } from "./spinner";
 import { WAITING_LIST_STATUS } from "@/convex/constant";
 import { Button } from "./ui/button";
 
-const JoinQueue = ({ eventId, userId }: { eventId: Id<"events">, userId: string }) => {
+// FIX: Change userId type from 'string' to 'Id<"users">' to satisfy backend requirements
+const JoinQueue = ({ eventId, userId }: { eventId: Id<"events">, userId: Id<"users"> }) => {
     const joinWaitingList = useMutation(api.events.joinWaitingList);
+    
     const queuePosition = useQuery(api.waitingList.getQueuePosition, {
         eventId,
-        userId,
+        userId, // Now TypeScript knows this is a valid ID
     });
+    
     const userTicket = useQuery(api.tickets.getUserTicketForEvent, {
         eventId,
         userId,
     });
+    
     const availability = useQuery(api.events.getEventAvailability, { eventId });
     const event = useQuery(api.events.getById, { eventId });
 
@@ -51,7 +55,7 @@ const JoinQueue = ({ eventId, userId }: { eventId: Id<"events">, userId: string 
     }
 
     const isEventOwner = userId === event?.userId;
-    const isPastEvent = event?.eventDate as number < Date.now()
+    const isPastEvent = (event?.eventDate as number) < Date.now();
 
     if (queuePosition === undefined || availability === undefined || !event) {
         return (
@@ -83,7 +87,7 @@ const JoinQueue = ({ eventId, userId }: { eventId: Id<"events">, userId: string 
                                 <Clock className="w-5 h-5" />
                                 <span>Event has ended</span>
                             </div>
-                        ) : availability.purchasedCount >= availability?.totalTickets ? (
+                        ) : availability.purchasedCount >= availability.totalTickets ? (
                             <div className="text-center p-4">
                                 <p className="text-lg font-semibold text-destructive">
                                     Sorry, this event is sold out
@@ -103,7 +107,6 @@ const JoinQueue = ({ eventId, userId }: { eventId: Id<"events">, userId: string 
                 )}
         </div>
     )
-
-
 }
-export default JoinQueue
+
+export default JoinQueue;
