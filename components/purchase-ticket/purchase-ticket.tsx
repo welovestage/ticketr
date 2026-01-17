@@ -1,12 +1,14 @@
 "use client";
+
+import React from "react";
+import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
-import React from "react";
 import { TicketReservation } from "./ticket-reservation";
 import ReleaseTicket from "../release-ticket";
 import { useTicketPurchase } from "@/app/hooks/useTicketPurchase";
-import { useOfferTimer } from "@/app/hooks/useOfferTime";
+// FIX: Corrected import name from "useOfferTime" to "useOfferTimer"
+import { useOfferTimer } from "@/app/hooks/useOfferTimer";
 
 const PurchaseTicket = ({ eventId }: { eventId: Id<"events"> }) => {
   const user = useQuery(api.users.getUser);
@@ -14,6 +16,7 @@ const PurchaseTicket = ({ eventId }: { eventId: Id<"events"> }) => {
   // Encapsulates all timer and queue position logic
   const { isExpired, isLoading, queuePosition, offerExpiresAt } = useOfferTimer({
     eventId,
+    // This safely passes Id<"users"> | undefined, which satisfies our updated strict type
     userId: user?._id,
   });
 
@@ -33,7 +36,7 @@ const PurchaseTicket = ({ eventId }: { eventId: Id<"events"> }) => {
         onRelease={() => {}} // Handled by ReleaseTicket component below
         isPurchaseLoading={isPurchaseLoading || isLoading || isExpired}
       />
-      {queuePosition?._id && ( // Only render if waitingListId exists
+      {queuePosition?._id && (
         <ReleaseTicket 
           eventId={eventId} 
           waitingListId={queuePosition._id} 

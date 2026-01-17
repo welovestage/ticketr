@@ -6,7 +6,8 @@ import { Id } from '@/convex/_generated/dataModel';
 
 interface UseOfferTimerProps {
   eventId: Id<"events">;
-  userId?: string;
+  // FIX: Allow null, but enforce strict Id type instead of generic string
+  userId?: Id<"users"> | null; 
 }
 
 interface UseOfferTimerReturn {
@@ -18,7 +19,7 @@ interface UseOfferTimerReturn {
     _id: Id<"waitingList">;
     _creationTime: number;
     eventId: Id<"events">;
-    userId: string;
+    userId: Id<"users">; // FIX: Update this too for consistency
     status: "waiting" | "offered" | "purchased" | "expired";
     offerExpiresAt?: number;
     position: number;
@@ -30,6 +31,7 @@ export function useOfferTimer({ eventId, userId }: UseOfferTimerProps): UseOffer
   
   const queuePosition = useQuery(
     api.waitingList.getQueuePosition,
+    // TypeScript now knows that if userId exists, it is Id<"users">
     userId ? { eventId, userId } : "skip"
   );
 
