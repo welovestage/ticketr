@@ -31,7 +31,6 @@ export const pay = action({
       userId,
     });
 
-    // Use 'api' because getById is a public query
     const organizer = await ctx.runQuery(api.users.getById, {
       userId: event.userId as Id<"users">,
     });
@@ -56,7 +55,7 @@ export const pay = action({
       ],
       mode: "payment",
       payment_intent_data: {
-        application_fee_amount: 0, // Example: 100, platform keeps $1.00
+        application_fee_amount: 0,
         transfer_data: {
           destination: organizer.stripeConnectId,
         },
@@ -79,7 +78,6 @@ export const pay = action({
 export const fulfill = internalAction({
   args: { signature: v.string(), payload: v.string() },
   handler: async (ctx, { signature, payload }): Promise<{ success: boolean; error?: string }> => {
-    // MOVED INSIDE
     const stripe = new Stripe(process.env.STRIPE_KEY!, {
       apiVersion: "2025-07-30.basil",
     });
@@ -114,5 +112,69 @@ export const fulfill = internalAction({
       console.error("Webhook Error:", (err as Error).message);
       return { success: false, error: (err as Error).message };
     }
+  },
+});
+
+// --- NEW ACTION FOR CANCELLATIONS ---
+export const refundEventTickets = action({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    const stripe = new Stripe(process.env.STRIPE_KEY!, {
+      apiVersion: "2025-07-30.basil",
+    });
+
+    // 1. Get all valid tickets for this event
+    const tickets = await ctx.runQuery(internal.tickets.getValidTicketsForEvent, {
+      eventId,
+    });
+
+    // 2. Process Refunds
+    const results = await Promise.allSettled(
+      tickets.map(async (ticket) => {
+        // Skip tickets without payment info (e.g. free tickets or admin created)
+        if (!ticket.paymentId) return;
+
+        try {
+          // Get the Stripe Session ID from the Payment record
+          const payment = await ctx.runQuery(internal.payments.get, {
+            paymentId: ticket.paymentId,
+          });
+          
+          if (!payment?.stripeId) return;
+
+          const session = await stripe.checkout.sessions.retrieve(payment.stripeId);
+          if (!session.payment_intent) return;
+
+          // Refund the payment
+          await stripe.refunds.create({
+            payment_intent: session.payment_intent as string,
+            reason: "requested_by_customer",
+            // IMPORTANT: reverse_transfer: true allows us to pull funds back 
+            // from the connected seller account to refund the customer.
+            reverse_transfer: true, 
+          });
+
+          // Mark ticket as refunded in DB
+          await ctx.runMutation(internal.tickets.updateTicketStatus, {
+            ticketId: ticket._id,
+            status: "refunded",
+          });
+        } catch (error) {
+          console.error(`Failed to refund ticket ${ticket._id}`, error);
+          throw error;
+        }
+      })
+    );
+
+    // 3. Check for failures
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      throw new Error(`${failed.length} tickets failed to refund. Event not cancelled.`);
+    }
+
+    // 4. Cancel the event
+    await ctx.runMutation(api.events.cancelEvent, { eventId });
+
+    return { success: true };
   },
 });

@@ -1,21 +1,17 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { WAITING_LIST_STATUS } from "./constant";
 import { processQueueHelper } from "./waitingList";
 
-// It creates a document in our “payments” table so that we can track the progress of the checkout flow.
-
 /**
  * GET TICKET ID
- * Used by the success page to redirect the user to their ticket.
- * We look this up in the 'tickets' table using the payment reference.
+ * Used by the frontend success page to redirect the user to their ticket.
  */
 export const getTicketId = query({
   args: { paymentId: v.optional(v.id("payments")) },
   handler: async (ctx, { paymentId }) => {
     if (!paymentId) return null;
 
-    // Look up the ticket associated with this payment
     const ticket = await ctx.db
       .query("tickets")
       .withIndex("by_payment", (q) => q.eq("paymentId", paymentId))
@@ -46,25 +42,20 @@ export const markPending = internalMutation({
   },
 });
 
-//  1. Marks payment as fulfilled.
-//  2. Generates the actual Ticket.
-//  3. Updates Waiting List if applicable.
 export const fulfill = internalMutation({
   args: {
     stripeId: v.string(),
   },
   handler: async (ctx, { stripeId }) => {
-    // Find the payment by Stripe Session ID
     const payment = await ctx.db
       .query("payments")
       .withIndex("stripeId", (q) => q.eq("stripeId", stripeId))
       .first();
+
     if (!payment || payment.status === "fulfilled") return;
 
-    // Mark Payment as Fulfilled
     await ctx.db.patch(payment._id, { status: "fulfilled" });
-    // Create the ticket
-    // 3. CREATE THE TICKET (The most important part)
+
     await ctx.db.insert("tickets", {
       eventId: payment.eventId,
       userId: payment.userId,
@@ -73,13 +64,6 @@ export const fulfill = internalMutation({
       purchasedAt: Date.now(),
     });
 
-    // Mark payment as fulfilled with the ticketId | Commented because we don't crry ticketId with payment anymore.
-    // await ctx.db.patch(payment._id, {
-    //   ticketId,
-    //   status: "fulfilled",
-    // }); 
-
-    // If there's a waiting list entry for this user/event, update it. Consider removing for lean testing
     const waitingListEntry = await ctx.db
       .query("waitingList")
       .withIndex("by_user_event", (q) =>
@@ -93,16 +77,14 @@ export const fulfill = internalMutation({
         status: WAITING_LIST_STATUS.PURCHASED,
       });
 
-      // Process queue for next person
       await processQueueHelper(ctx, { eventId: payment.eventId });
     }
-
-    // return ticketId;
   },
 });
 
-// refundEventTickets wants this
-export const get = query({
+// REQUIRED: This is used by `convex/stripe.ts` in the `refundEventTickets` action.
+// We made it 'internalQuery' to be safe.
+export const get = internalQuery({
   args: { paymentId: v.id("payments") },
   handler: async (ctx, { paymentId }) => {
     return await ctx.db.get(paymentId);

@@ -304,7 +304,7 @@ export const search = query({
 });
 
 export const getSellerEvents = query({
-  args: { userId: v.string() },
+  args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
     const events = await ctx.db
       .query("events")

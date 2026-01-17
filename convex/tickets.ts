@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query, internalMutation, internalQuery } from "./_generated/server";
 
 export const getUserTicketForEvent = query({
     args: {
@@ -28,7 +28,9 @@ export const getTicketWithDetails = query({
     },
 });
 
-export const updateTicketStatus = mutation({
+// CHANGED: Use internalMutation for security.
+// Only the Stripe refund action should be able to mark tickets as refunded.
+export const updateTicketStatus = internalMutation({
     args: {
         ticketId: v.id("tickets"),
         status: v.union(
@@ -43,7 +45,9 @@ export const updateTicketStatus = mutation({
     },
 });
 
-export const getValidTicketsForEvent = query({
+// CHANGED: Use internalQuery.
+// This is used by the backend to find which tickets to refund.
+export const getValidTicketsForEvent = internalQuery({
     args: { eventId: v.id("events") },
     handler: async (ctx, { eventId }) => {
         return await ctx.db
