@@ -123,36 +123,48 @@ export const refundEventTickets = action({
       apiVersion: "2025-07-30.basil",
     });
 
-    // 1. Get all valid tickets for this event
+    // 1. Get all valid tickets
     const tickets = await ctx.runQuery(internal.tickets.getValidTicketsForEvent, {
       eventId,
     });
 
-    // 2. Process Refunds
+    // 2. Process Refunds / Cancellations
     const results = await Promise.allSettled(
       tickets.map(async (ticket) => {
-        // Skip tickets without payment info (e.g. free tickets or admin created)
-        if (!ticket.paymentId) return;
+        // CASE 1: Ticket has no payment (Free / Admin / Legacy)
+        // Just mark it as cancelled in the DB since there is no money to refund.
+        if (!ticket.paymentId) {
+          await ctx.runMutation(internal.tickets.updateTicketStatus, {
+            ticketId: ticket._id,
+            status: "cancelled",
+          });
+          return;
+        }
 
+        // CASE 2: Ticket has a payment (Stripe)
         try {
-          // Get the Stripe Session ID from the Payment record
           const payment = await ctx.runQuery(internal.payments.get, {
             paymentId: ticket.paymentId,
           });
-          
-          if (!payment?.stripeId) return;
+
+          // If payment record missing but ticket has ID, treat as manual fix
+          if (!payment?.stripeId) {
+             await ctx.runMutation(internal.tickets.updateTicketStatus, {
+                ticketId: ticket._id,
+                status: "cancelled", // No Stripe ID found, just cancel
+             });
+             return;
+          }
 
           const session = await stripe.checkout.sessions.retrieve(payment.stripeId);
-          if (!session.payment_intent) return;
-
-          // Refund the payment
-          await stripe.refunds.create({
-            payment_intent: session.payment_intent as string,
-            reason: "requested_by_customer",
-            // IMPORTANT: reverse_transfer: true allows us to pull funds back 
-            // from the connected seller account to refund the customer.
-            reverse_transfer: true, 
-          });
+          // Only attempt Stripe refund if there was a payment intent
+          if (session.payment_intent) {
+            await stripe.refunds.create({
+              payment_intent: session.payment_intent as string,
+              reason: "requested_by_customer",
+              reverse_transfer: true,
+            });
+          }
 
           // Mark ticket as refunded in DB
           await ctx.runMutation(internal.tickets.updateTicketStatus, {
@@ -173,6 +185,7 @@ export const refundEventTickets = action({
     }
 
     // 4. Cancel the event
+    // Now this will succeed because ALL valid tickets have been changed to "refunded" or "cancelled"
     await ctx.runMutation(api.events.cancelEvent, { eventId });
 
     return { success: true };
